@@ -1,0 +1,709 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Study Timetable 2026</title>
+  <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+  <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+  <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Instrument+Serif:ital@0;1&display=swap" rel="stylesheet">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #0c0c0f;
+      --surface: #141418;
+      --surface2: #1c1c22;
+      --border: #2a2a35;
+      --text: #e8e8f0;
+      --muted: #6b6b80;
+      --accent: #c8f542;
+    }
+
+    body {
+      font-family: 'Space Mono', monospace;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      overflow-x: hidden;
+    }
+
+    #root { min-height: 100vh; }
+
+    ::-webkit-scrollbar { width: 6px; }
+    ::-webkit-scrollbar-track { background: var(--bg); }
+    ::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(12px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .animate-in {
+      animation: fadeIn 0.4s ease forwards;
+    }
+
+    .today-pulse {
+      animation: pulse 2s ease-in-out infinite;
+    }
+  </style>
+</head>
+<body>
+  <div id="root"></div>
+  <script type="text/babel">
+    const { useState, useMemo, useEffect, useRef } = React;
+
+    // ─── DATA ────────────────────────────────────────────────────────────────
+
+    const SUBJECTS = {
+      Maths:     { color: "#3B82F6", emoji: "📐" },
+      English:   { color: "#8B5CF6", emoji: "📖" },
+      History:   { color: "#F59E0B", emoji: "🏛" },
+      French:    { color: "#EF4444", emoji: "🇫🇷" },
+      Irish:     { color: "#10B981", emoji: "☘️" },
+      DCG:       { color: "#06B6D4", emoji: "📏" },
+      Biology:   { color: "#84CC16", emoji: "🔬" },
+      AgScience: { color: "#F97316", emoji: "🌾" },
+    };
+
+    const TOPICS = {
+      Maths: [
+        "Algebra 1","Algebra 2","Algebra 3","Length, Area & Volume","Functions",
+        "Indices & Logs","Numbers, Patterns & Sequences","Complex Numbers",
+        "Calculus 1","Calculus 2","Integration","Proof by Induction",
+        "Probability 1","Probability 2","Trigonometry",
+        "Co-ord Geometry: Line","Co-ord Geometry: Circle","Statistics"
+      ],
+      English: [
+        "Poetry: Bishop & Meehan","Poetry: Yeats & Heaney","Personal Essay",
+        "Article Writing","Single Text: Dracula","Comparative: Small Things Like These",
+        "Comparative: Macbeth","Comparative: Grand Budapest Hotel","Comprehension Part A & B"
+      ],
+      History: [
+        "NI: Sunningdale, Anglo-Irish, Downing St","NI: Welfare State",
+        "NI: Coleraine & ABOD","NI: Brokeborough vs O'Neill",
+        "America: Truman & Foreign Policy","America: Civil Rights",
+        "America: LBJ & Vietnam","America: Space Race",
+        "Dict: Lenin's Russia","Dict: Stalin's Russia","Dict: Mussolini's Italy",
+        "Dict: Weimar Germany & Nazi State","Dict: Britain, Jarrow & Home Front",
+        "Dict: France & Church-State Relations",
+        "Docs: 1885-86 Elections (Parnell)","Docs: Foundation of GAA","Docs: 1913 Lockout"
+      ],
+      French: [
+        "Oral: Myself & Family","Oral: School","Oral: My Area","Oral: Hobbies",
+        "Oral: Best Friend & Holidays","Oral: Document & Future",
+        "Written: Opinion Piece","Written: Journal","Comprehension: Q6 & Vocab"
+      ],
+      Irish: [
+        "Oral: Mé Féin agus Mo Chlann","Oral: An Scoil","Oral: Mo Cheantar",
+        "Oral: Caithimh Aimsire","Oral: Todhchaí","Oral: An Timpeallacht",
+        "Written: Aiste","Written: Scéal","Comprehension & Léamhthuiscint"
+      ],
+      DCG: [
+        "Helixes","Linkages","Dynamic Mechanisms (Involutes & Cycloids)","Perspective 3D Drawing",
+        "Axonometric, Isometric & Trimetric","Auxiliary View","Solids in Contact",
+        "Hyperbolic Structures & Structural Forms","Orthographic Projection with Intersecting Pieces",
+        "Surface Development","Conics (Focal Sphere & Eccentricity)","Intersecting Solids",
+        "Intersecting Planes","Skewed Lines"
+      ],
+      Biology: [
+        "Scientific Method & Characteristics of Life","Ecology","Cell Structure & Diversity",
+        "Enzymes","Photosynthesis","Respiration","Diffusion & Osmosis",
+        "Bacteria, Fungi & Viruses","Transport & Structure of Plants",
+        "Circulatory System","Digestive System","Homeostasis & Excretion",
+        "Human Breathing","Endocrine System","Skeleton & Muscles",
+        "Human Defence Systems","Human Reproduction","Genetics","Plant Genetics","Experiments"
+      ],
+      AgScience: [
+        "Grassland Characteristics & Growth","Grazing & Grassland Management",
+        "Silage & Hay Production","Sowing & Reseeding Grassland",
+        "Physical & Biological Properties of Soil","Soil Fertility & Management",
+        "Milk Composition & Production","Dairy Breeds, Nutrition & Management",
+        "Animal Nutrition","Animal Physiology (Calves)","Crop Production & Management",
+        "Kale & Catch Crops","Sheep Production & Lamb Husbandry"
+      ]
+    };
+
+    const DAY_SLOTS = {
+      1: { start: "19:15", end: "20:30", mins: 75 },
+      2: { start: "18:00", end: "21:00", mins: 180 },
+      3: { start: "15:00", end: "20:30", mins: 330 },
+      4: { start: "16:30", end: "21:00", mins: 270 },
+      5: { start: "16:00", end: "19:00", mins: 180 },
+      6: { start: "07:00", end: "15:00", mins: 480 },
+      0: { start: "07:00", end: "15:00", mins: 480 },
+    };
+
+    function generateTimetable() {
+      const oralDeadline = new Date("2026-03-28");
+      const examPracticeStart = new Date("2026-05-15");
+
+      // Build ordered queue using round-robin so every subject appears every few sessions.
+      // This ensures each day/week has a blend rather than blocks of one subject.
+
+      const subjectOrder = ["Maths","English","History","Biology","AgScience","DCG","French","Irish"];
+
+      // Helper: round-robin interleave an array-of-arrays into one flat queue
+      function roundRobin(buckets) {
+        const result = [];
+        const ptrs = buckets.map(() => 0);
+        let added = true;
+        while (added) {
+          added = false;
+          buckets.forEach((bucket, i) => {
+            if (ptrs[i] < bucket.length) {
+              result.push(bucket[ptrs[i]]);
+              ptrs[i]++;
+              added = true;
+            }
+          });
+        }
+        return result;
+      }
+
+      // PASS 1 buckets — oral topics marked pre-oral, everything else main
+      const pass1Buckets = subjectOrder.map(name => {
+        return TOPICS[name].map((topic, i) => {
+          const isOral = (name === "French" || name === "Irish") && i < 6;
+          return { subject: name, topic, pass: 1, phase: isOral ? "pre-oral" : "main" };
+        });
+      });
+
+      // PASS 2 buckets — all topics, all main
+      const pass2Buckets = subjectOrder.map(name =>
+        TOPICS[name].map(topic => ({ subject: name, topic, pass: 2, phase: "main" }))
+      );
+
+      // EXAM PRACTICE buckets
+      const examBuckets = subjectOrder.map(name => [
+        { subject: name, topic: "📝 Past Paper Questions", pass: 0, phase: "exam" },
+        { subject: name, topic: "📝 Timed Exam Conditions", pass: 0, phase: "exam" },
+      ]);
+
+      const queue = [
+        ...roundRobin(pass1Buckets),
+        ...roundRobin(pass2Buckets),
+        ...roundRobin(examBuckets),
+      ];
+
+      // Build date slots
+      const allDays = [];
+      const cur = new Date("2026-03-10");
+      const endDate = new Date("2026-06-01");
+      while (cur <= endDate) {
+        const dow = cur.getDay();
+        const slot = DAY_SLOTS[dow];
+        if (slot) {
+          allDays.push({ date: new Date(cur).toISOString().split("T")[0], dow, ...slot });
+        }
+        cur.setDate(cur.getDate() + 1);
+      }
+
+      // Assign sessions
+      let qIdx = 0;
+      const timetable = {};
+      const SESSION_MINS = 90;
+
+      allDays.forEach(day => {
+        const date = new Date(day.date);
+        const isPreOral = date < oralDeadline;
+        const isExam = date >= examPracticeStart;
+        const sessions = [];
+        let minsLeft = day.mins;
+
+        while (minsLeft >= SESSION_MINS && qIdx < queue.length) {
+          // During exam practice phase, pull forward exam-phase topics
+          if (isExam) {
+            const idx = queue.findIndex((e, i) => i >= qIdx && e.phase === "exam");
+            if (idx !== -1 && idx < qIdx + 16) {
+              [queue[qIdx], queue[idx]] = [queue[idx], queue[qIdx]];
+            }
+          }
+
+          const entry = queue[qIdx];
+          if (!entry) break;
+
+          sessions.push({ ...entry, id: `${day.date}-${qIdx}` });
+          minsLeft -= SESSION_MINS;
+          qIdx++;
+        }
+
+        if (sessions.length > 0) {
+          timetable[day.date] = {
+            date: day.date,
+            dow: day.dow,
+            startTime: day.start,
+            endTime: day.end,
+            sessions,
+          };
+        }
+      });
+
+      return timetable;
+    }
+
+    // ─── SPECIAL DATES ────────────────────────────────────────────────────────
+    const SPECIAL_DATES = {
+      "2026-03-28": { label: "🎤 Oral Exams Begin", color: "#EF4444" },
+      "2026-04-02": { label: "🎤 Oral Exams End", color: "#EF4444" },
+      "2026-05-15": { label: "📝 Exam Practice Phase Begins", color: "#c8f542" },
+      "2026-06-01": { label: "🏁 Exams Begin", color: "#F59E0B" },
+    };
+
+    // ─── COMPONENTS ───────────────────────────────────────────────────────────
+
+    function SessionCard({ session, done, onToggle }) {
+      const subj = SUBJECTS[session.subject];
+      const isExam = session.phase === "exam";
+      const isPreOral = session.phase === "pre-oral";
+
+      return (
+        <div
+          onClick={() => onToggle(session.id)}
+          style={{
+            display: "flex",
+            alignItems: "flex-start",
+            gap: "10px",
+            padding: "10px 12px",
+            borderRadius: "8px",
+            border: `1px solid ${done ? "transparent" : subj.color + "40"}`,
+            background: done ? "#1a1a20" : subj.color + "12",
+            cursor: "pointer",
+            transition: "all 0.2s",
+            opacity: done ? 0.45 : 1,
+            userSelect: "none",
+          }}
+        >
+          {/* Checkbox */}
+          <div style={{
+            width: 18, height: 18, borderRadius: 4, border: `2px solid ${done ? subj.color : subj.color + "80"}`,
+            background: done ? subj.color : "transparent", flexShrink: 0, marginTop: 1,
+            display: "flex", alignItems: "center", justifyContent: "center",
+            transition: "all 0.2s",
+          }}>
+            {done && <span style={{ color: "#000", fontSize: 11, fontWeight: 700 }}>✓</span>}
+          </div>
+
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+              <span style={{ fontSize: 12, color: subj.color, fontWeight: 700, fontFamily: "Space Mono" }}>
+                {subj.emoji} {session.subject.toUpperCase()}
+              </span>
+              {isPreOral && (
+                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 20, background: "#EF444430", color: "#EF4444" }}>
+                  ORAL PREP
+                </span>
+              )}
+              {session.pass > 0 && (
+                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 20, background: subj.color + "20", color: subj.color + "cc" }}>
+                  PASS {session.pass}
+                </span>
+              )}
+              {isExam && (
+                <span style={{ fontSize: 10, padding: "1px 6px", borderRadius: 20, background: "#c8f54230", color: "#c8f542" }}>
+                  EXAM PREP
+                </span>
+              )}
+            </div>
+            <div style={{
+              fontSize: 13, color: done ? "#555" : "#d0d0e0", marginTop: 2,
+              textDecoration: done ? "line-through" : "none",
+              fontFamily: "Instrument Serif, serif", fontStyle: "italic", lineHeight: 1.3,
+            }}>
+              {session.topic}
+            </div>
+            <div style={{ fontSize: 10, color: "#555", marginTop: 2 }}>90 min session</div>
+          </div>
+        </div>
+      );
+    }
+
+    function DayCard({ dayData, completedSessions, onToggle, isToday, special }) {
+      const date = new Date(dayData.date + "T12:00:00");
+      const dayNames = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+      const monthNames = ["Jan","Feb","Mar","Apr","May","Jun"];
+      const dayName = dayNames[date.getDay()];
+      const formatted = `${date.getDate()} ${monthNames[date.getMonth()]}`;
+      const totalSessions = dayData.sessions.length;
+      const doneCount = dayData.sessions.filter(s => completedSessions[s.id]).length;
+      const progress = totalSessions > 0 ? (doneCount / totalSessions) * 100 : 0;
+
+      const allSubjects = [...new Set(dayData.sessions.map(s => s.subject))];
+
+      return (
+        <div
+          style={{
+            background: isToday ? "#1a1f14" : "#141418",
+            border: `1px solid ${isToday ? "#c8f542" : "#2a2a35"}`,
+            borderRadius: 12,
+            overflow: "hidden",
+            transition: "border-color 0.2s",
+          }}
+        >
+          {/* Header */}
+          <div style={{
+            padding: "12px 16px",
+            borderBottom: "1px solid #2a2a35",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "space-between",
+            background: isToday ? "#c8f54210" : "transparent",
+          }}>
+            <div>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span style={{ fontWeight: 700, fontSize: 14, color: isToday ? "#c8f542" : "#e8e8f0" }}>
+                  {dayName}
+                </span>
+                {isToday && (
+                  <span style={{ fontSize: 10, padding: "1px 8px", borderRadius: 20, background: "#c8f542", color: "#0c0c0f", fontWeight: 700 }}>
+                    TODAY
+                  </span>
+                )}
+                {special && (
+                  <span style={{ fontSize: 10, padding: "1px 8px", borderRadius: 20, background: special.color + "30", color: special.color, maxWidth: 200, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {special.label}
+                  </span>
+                )}
+              </div>
+              <div style={{ fontSize: 11, color: "#6b6b80", marginTop: 1 }}>
+                {formatted} · {dayData.startTime}–{dayData.endTime}
+              </div>
+            </div>
+            <div style={{ textAlign: "right" }}>
+              <div style={{ fontSize: 12, color: progress === 100 ? "#c8f542" : "#6b6b80" }}>
+                {doneCount}/{totalSessions}
+              </div>
+              <div style={{
+                width: 60, height: 4, background: "#2a2a35", borderRadius: 2, marginTop: 4, overflow: "hidden"
+              }}>
+                <div style={{ width: `${progress}%`, height: "100%", background: progress === 100 ? "#c8f542" : "#3B82F6", borderRadius: 2, transition: "width 0.3s" }} />
+              </div>
+            </div>
+          </div>
+
+          {/* Subject pills */}
+          <div style={{ padding: "8px 16px", display: "flex", gap: 4, flexWrap: "wrap", borderBottom: "1px solid #1f1f28" }}>
+            {allSubjects.map(s => (
+              <span key={s} style={{ fontSize: 10, padding: "2px 7px", borderRadius: 20, background: SUBJECTS[s].color + "20", color: SUBJECTS[s].color }}>
+                {SUBJECTS[s].emoji} {s}
+              </span>
+            ))}
+          </div>
+
+          {/* Sessions */}
+          <div style={{ padding: "12px 16px", display: "flex", flexDirection: "column", gap: 8 }}>
+            {dayData.sessions.map(session => (
+              <SessionCard
+                key={session.id}
+                session={session}
+                done={!!completedSessions[session.id]}
+                onToggle={onToggle}
+              />
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    function StatsBar({ timetable, completed }) {
+      const allSessions = Object.values(timetable).flatMap(d => d.sessions);
+      const total = allSessions.length;
+      const done = allSessions.filter(s => completed[s.id]).length;
+
+      const subjectStats = Object.keys(SUBJECTS).map(name => {
+        const ss = allSessions.filter(s => s.subject === name);
+        const d = ss.filter(s => completed[s.id]).length;
+        return { name, total: ss.length, done: d, color: SUBJECTS[name].color, emoji: SUBJECTS[name].emoji };
+      });
+
+      return (
+        <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          {/* Overall */}
+          <div style={{ background: "#141418", border: "1px solid #2a2a35", borderRadius: 12, padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+              <span style={{ fontSize: 12, color: "#6b6b80" }}>OVERALL PROGRESS</span>
+              <span style={{ fontSize: 20, fontWeight: 700, color: "#c8f542" }}>{done}/{total}</span>
+            </div>
+            <div style={{ height: 8, background: "#2a2a35", borderRadius: 4, overflow: "hidden" }}>
+              <div style={{ width: `${(done/total)*100}%`, height: "100%", background: "linear-gradient(90deg, #3B82F6, #c8f542)", borderRadius: 4, transition: "width 0.4s" }} />
+            </div>
+            <div style={{ fontSize: 11, color: "#6b6b80", marginTop: 6 }}>
+              {Math.round((done/total)*100)}% complete · {total - done} sessions remaining
+            </div>
+          </div>
+
+          {/* Per subject */}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8 }}>
+            {subjectStats.map(s => (
+              <div key={s.name} style={{ background: "#141418", border: `1px solid ${s.color}30`, borderRadius: 10, padding: "10px 12px" }}>
+                <div style={{ fontSize: 11, color: s.color, fontWeight: 700 }}>{s.emoji} {s.name}</div>
+                <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                  <span style={{ fontSize: 11, color: "#6b6b80" }}>{s.done}/{s.total}</span>
+                  <span style={{ fontSize: 11, color: s.done === s.total ? "#c8f542" : "#6b6b80" }}>
+                    {Math.round((s.done/s.total)*100)}%
+                  </span>
+                </div>
+                <div style={{ height: 3, background: "#2a2a35", borderRadius: 2, marginTop: 4, overflow: "hidden" }}>
+                  <div style={{ width: `${(s.done/s.total)*100}%`, height: "100%", background: s.color, borderRadius: 2, transition: "width 0.3s" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      );
+    }
+
+    // ─── MAIN APP ─────────────────────────────────────────────────────────────
+
+    function App() {
+      const timetable = useMemo(() => generateTimetable(), []);
+      const [completed, setCompleted] = useState(() => {
+        try { return JSON.parse(localStorage.getItem("study-completed") || "{}"); }
+        catch { return {}; }
+      });
+      const [view, setView] = useState("schedule"); // "schedule" | "stats" | "subjects"
+      const [filter, setFilter] = useState("all"); // "all" | "upcoming" | "today" | subject name
+      const [search, setSearch] = useState("");
+      const todayStr = new Date().toISOString().split("T")[0];
+      const todayRef = useRef(null);
+
+      useEffect(() => {
+        try { localStorage.setItem("study-completed", JSON.stringify(completed)); }
+        catch {}
+      }, [completed]);
+
+      useEffect(() => {
+        if (view === "schedule" && todayRef.current) {
+          setTimeout(() => todayRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }), 100);
+        }
+      }, [view]);
+
+      function toggleSession(id) {
+        setCompleted(prev => ({ ...prev, [id]: !prev[id] }));
+      }
+
+      const sortedDays = useMemo(() => Object.values(timetable).sort((a, b) => a.date.localeCompare(b.date)), [timetable]);
+
+      const filteredDays = useMemo(() => {
+        let days = sortedDays;
+        if (filter === "upcoming") days = days.filter(d => d.date >= todayStr);
+        else if (filter === "today") days = days.filter(d => d.date === todayStr);
+        else if (filter !== "all") days = days.filter(d => d.sessions.some(s => s.subject === filter));
+
+        if (search.trim()) {
+          const q = search.toLowerCase();
+          days = days.filter(d => d.sessions.some(s => s.topic.toLowerCase().includes(q) || s.subject.toLowerCase().includes(q)));
+        }
+        return days;
+      }, [sortedDays, filter, search, todayStr]);
+
+      // Week grouping
+      function getWeekKey(dateStr) {
+        const d = new Date(dateStr + "T12:00:00");
+        const day = d.getDay();
+        const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+        const mon = new Date(d);
+        mon.setDate(diff);
+        return mon.toISOString().split("T")[0];
+      }
+
+      const groupedByWeek = useMemo(() => {
+        const groups = {};
+        filteredDays.forEach(day => {
+          const wk = getWeekKey(day.date);
+          if (!groups[wk]) groups[wk] = [];
+          groups[wk].push(day);
+        });
+        return groups;
+      }, [filteredDays]);
+
+      function formatWeekLabel(weekStart) {
+        const d = new Date(weekStart + "T12:00:00");
+        const end = new Date(d);
+        end.setDate(d.getDate() + 6);
+        const months = ["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+        return `Week of ${d.getDate()} ${months[d.getMonth()]} – ${end.getDate()} ${months[end.getMonth()]}`;
+      }
+
+      // Phases
+      const phases = [
+        { label: "Phase 1: Oral Prep", dates: "10 Mar – 27 Mar", color: "#EF4444" },
+        { label: "Phase 2: Main Study", dates: "3 Apr – 14 May", color: "#3B82F6" },
+        { label: "Phase 3: Exam Practice", dates: "15 May – 1 Jun", color: "#c8f542" },
+      ];
+
+      return (
+        <div style={{ maxWidth: 900, margin: "0 auto", padding: "20px 16px 60px" }}>
+          {/* Header */}
+          <div style={{ marginBottom: 28, paddingBottom: 20, borderBottom: "1px solid #2a2a35" }}>
+            <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12 }}>
+              <div>
+                <h1 style={{ fontFamily: "Instrument Serif, serif", fontSize: "clamp(28px, 5vw, 42px)", fontWeight: 400, fontStyle: "italic", color: "#e8e8f0", lineHeight: 1.1 }}>
+                  Study Timetable
+                </h1>
+                <p style={{ color: "#6b6b80", fontSize: 12, marginTop: 4 }}>
+                  March 2026 → June 2026 · Leaving Cert
+                </p>
+              </div>
+              <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                {phases.map(p => (
+                  <div key={p.label} style={{ fontSize: 10, padding: "4px 10px", borderRadius: 20, background: p.color + "20", color: p.color, border: `1px solid ${p.color}40`, lineHeight: 1.6 }}>
+                    <div style={{ fontWeight: 700 }}>{p.label}</div>
+                    <div style={{ opacity: 0.8 }}>{p.dates}</div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          {/* Nav */}
+          <div style={{ display: "flex", gap: 4, marginBottom: 20, background: "#141418", border: "1px solid #2a2a35", borderRadius: 10, padding: 4 }}>
+            {[["schedule","📅 Schedule"], ["stats","📊 Progress"], ["subjects","📚 Subjects"]].map(([v, label]) => (
+              <button key={v} onClick={() => setView(v)} style={{
+                flex: 1, padding: "8px 0", borderRadius: 7, border: "none", cursor: "pointer",
+                background: view === v ? "#c8f542" : "transparent",
+                color: view === v ? "#0c0c0f" : "#6b6b80",
+                fontFamily: "Space Mono, monospace", fontSize: 11, fontWeight: view === v ? 700 : 400,
+                transition: "all 0.2s",
+              }}>
+                {label}
+              </button>
+            ))}
+          </div>
+
+          {view === "stats" && (
+            <div className="animate-in">
+              <StatsBar timetable={timetable} completed={completed} />
+            </div>
+          )}
+
+          {view === "subjects" && (
+            <div className="animate-in" style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+              {Object.entries(TOPICS).map(([name, topics]) => {
+                const subj = SUBJECTS[name];
+                const allSessions = Object.values(timetable).flatMap(d => d.sessions).filter(s => s.subject === name);
+                return (
+                  <div key={name} style={{ background: "#141418", border: `1px solid ${subj.color}30`, borderRadius: 12, padding: "14px 18px" }}>
+                    <div style={{ fontWeight: 700, color: subj.color, marginBottom: 10, fontSize: 13 }}>
+                      {subj.emoji} {name} <span style={{ color: "#555", fontWeight: 400 }}>— {topics.length} topics</span>
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
+                      {topics.map((t, i) => {
+                        const pass1 = allSessions.find(s => s.topic === t && s.pass === 1);
+                        const pass2 = allSessions.find(s => s.topic === t && s.pass === 2);
+                        const done1 = pass1 && completed[pass1.id];
+                        const done2 = pass2 && completed[pass2.id];
+                        return (
+                          <div key={i} style={{
+                            fontSize: 11, padding: "4px 10px", borderRadius: 20,
+                            background: done2 ? subj.color + "30" : done1 ? subj.color + "18" : "#1c1c22",
+                            color: done2 ? subj.color : done1 ? subj.color + "cc" : "#6b6b80",
+                            border: `1px solid ${done1 || done2 ? subj.color + "40" : "#2a2a35"}`,
+                            display: "flex", alignItems: "center", gap: 4,
+                          }}>
+                            {done2 ? "✓✓" : done1 ? "✓" : "○"} {t}
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+
+          {view === "schedule" && (
+            <div className="animate-in">
+              {/* Filters */}
+              <div style={{ display: "flex", gap: 8, marginBottom: 16, flexWrap: "wrap", alignItems: "center" }}>
+                <div style={{ display: "flex", gap: 4, background: "#141418", border: "1px solid #2a2a35", borderRadius: 8, padding: 3 }}>
+                  {[["all","All"], ["upcoming","Upcoming"], ["today","Today"]].map(([v, label]) => (
+                    <button key={v} onClick={() => setFilter(v)} style={{
+                      padding: "5px 12px", borderRadius: 6, border: "none", cursor: "pointer",
+                      background: filter === v ? "#2a2a35" : "transparent",
+                      color: filter === v ? "#e8e8f0" : "#6b6b80",
+                      fontFamily: "Space Mono, monospace", fontSize: 11, transition: "all 0.2s",
+                    }}>
+                      {label}
+                    </button>
+                  ))}
+                </div>
+                <input
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Search topics..."
+                  style={{
+                    background: "#141418", border: "1px solid #2a2a35", borderRadius: 8, padding: "6px 12px",
+                    color: "#e8e8f0", fontFamily: "Space Mono, monospace", fontSize: 11, outline: "none", flex: 1, minWidth: 150,
+                  }}
+                />
+              </div>
+
+              {/* Subject filter pills */}
+              <div style={{ display: "flex", gap: 4, marginBottom: 20, flexWrap: "wrap" }}>
+                {Object.entries(SUBJECTS).map(([name, s]) => (
+                  <button key={name} onClick={() => setFilter(filter === name ? "all" : name)} style={{
+                    fontSize: 10, padding: "4px 10px", borderRadius: 20, border: "none", cursor: "pointer",
+                    background: filter === name ? s.color : s.color + "15",
+                    color: filter === name ? "#0c0c0f" : s.color,
+                    fontFamily: "Space Mono, monospace", fontWeight: filter === name ? 700 : 400,
+                    transition: "all 0.2s",
+                  }}>
+                    {s.emoji} {name}
+                  </button>
+                ))}
+              </div>
+
+              {/* Days */}
+              {Object.entries(groupedByWeek).sort(([a], [b]) => a.localeCompare(b)).map(([wk, days]) => (
+                <div key={wk} style={{ marginBottom: 32 }}>
+                  <div style={{ fontSize: 11, color: "#6b6b80", marginBottom: 12, letterSpacing: "0.1em", display: "flex", alignItems: "center", gap: 10 }}>
+                    <span style={{ textTransform: "uppercase" }}>{formatWeekLabel(wk)}</span>
+                    <div style={{ flex: 1, height: 1, background: "#2a2a35" }} />
+                  </div>
+                  <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+                    {days.map(day => {
+                      const isToday = day.date === todayStr;
+                      return (
+                        <div key={day.date} ref={isToday ? todayRef : null}>
+                          <DayCard
+                            dayData={day}
+                            completedSessions={completed}
+                            onToggle={toggleSession}
+                            isToday={isToday}
+                            special={SPECIAL_DATES[day.date]}
+                          />
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
+
+              {filteredDays.length === 0 && (
+                <div style={{ textAlign: "center", color: "#6b6b80", padding: "60px 20px", fontSize: 13 }}>
+                  No sessions found for this filter.
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Footer */}
+          <div style={{ textAlign: "center", color: "#3a3a45", fontSize: 10, marginTop: 40 }}>
+            Click any session to mark it complete · Progress saves automatically
+          </div>
+        </div>
+      );
+    }
+
+    ReactDOM.createRoot(document.getElementById("root")).render(<App />);
+  </script>
+</body>
+</html>
