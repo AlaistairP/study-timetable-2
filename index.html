@@ -142,8 +142,8 @@
     };
 
     function generateTimetable() {
-      const oralDeadline = new Date("2026-03-28");
-      const examPracticeStart = new Date("2026-05-15");
+      const oralDeadline = new Date(2026, 2, 28, 12, 0, 0);
+      const examPracticeStart = new Date(2026, 4, 15, 12, 0, 0);
 
       // Build ordered queue using round-robin so every subject appears every few sessions.
       // This ensures each day/week has a blend rather than blocks of one subject.
@@ -181,42 +181,58 @@
         TOPICS[name].map(topic => ({ subject: name, topic, pass: 2, phase: "main" }))
       );
 
-      // EXAM PRACTICE buckets
+      // PASS 3 buckets — revision pass
+      const pass3Buckets = subjectOrder.map(name =>
+        TOPICS[name].map(topic => ({ subject: name, topic, pass: 3, phase: "main" }))
+      );
+
+      // EXAM PRACTICE buckets — 4 rounds each to fill remaining Sunday/Saturday slots
       const examBuckets = subjectOrder.map(name => [
         { subject: name, topic: "📝 Past Paper Questions", pass: 0, phase: "exam" },
         { subject: name, topic: "📝 Timed Exam Conditions", pass: 0, phase: "exam" },
+        { subject: name, topic: "📝 Exam Q&A Drilling", pass: 0, phase: "exam" },
+        { subject: name, topic: "📝 Predicted Questions Review", pass: 0, phase: "exam" },
       ]);
 
       const queue = [
         ...roundRobin(pass1Buckets),
         ...roundRobin(pass2Buckets),
+        ...roundRobin(pass3Buckets),
         ...roundRobin(examBuckets),
       ];
 
-      // Build date slots
+      // Build date slots — use local noon to avoid timezone day-shift bugs
       const allDays = [];
-      const cur = new Date("2026-03-10");
-      const endDate = new Date("2026-06-01");
-      while (cur <= endDate) {
-        const dow = cur.getDay();
+      let [cy, cm, cd] = [2026, 2, 10]; // month is 0-indexed below
+      const startD = new Date(2026, 2, 10, 12, 0, 0); // March 10 at noon local
+      const endD   = new Date(2026, 5,  1, 12, 0, 0); // June 1 at noon local
+      const cur2 = new Date(startD);
+      while (cur2 <= endD) {
+        const dow = cur2.getDay();
         const slot = DAY_SLOTS[dow];
+        const yyyy = cur2.getFullYear();
+        const mm   = String(cur2.getMonth() + 1).padStart(2, "0");
+        const dd   = String(cur2.getDate()).padStart(2, "0");
+        const dateStr = `${yyyy}-${mm}-${dd}`;
         if (slot) {
-          allDays.push({ date: new Date(cur).toISOString().split("T")[0], dow, ...slot });
+          allDays.push({ date: dateStr, dow, ...slot });
         }
-        cur.setDate(cur.getDate() + 1);
+        cur2.setDate(cur2.getDate() + 1);
       }
 
       // Assign sessions
       let qIdx = 0;
       const timetable = {};
-      const SESSION_MINS = 90;
 
       allDays.forEach(day => {
-        const date = new Date(day.date);
+        const [dy, dm, dd2] = day.date.split("-").map(Number);
+        const date = new Date(dy, dm - 1, dd2, 12, 0, 0);
         const isPreOral = date < oralDeadline;
         const isExam = date >= examPracticeStart;
         const sessions = [];
         let minsLeft = day.mins;
+        // Use 75 min sessions on short days (Monday = 75 mins), 90 on longer days
+        const SESSION_MINS = day.mins <= 75 ? 75 : 90;
 
         while (minsLeft >= SESSION_MINS && qIdx < queue.length) {
           // During exam practice phase, pull forward exam-phase topics
